@@ -731,7 +731,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             // Game Screen
-            <div className="w-full max-w-[95vw] flex flex-col gap-6 animate-in fade-in zoom-in duration-300">
+            <div className="w-full max-w-[95vw] flex flex-col gap-2 sm:gap-6 animate-in fade-in zoom-in duration-300">
               
               {/* Sheet Music Area */}
               <div className="relative">

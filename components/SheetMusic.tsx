@@ -208,8 +208,8 @@ const SheetMusic: React.FC<SheetMusicProps> = ({
   }, [items, clef, activeIndex, keyRoot, keyType, beamGroups]);
 
   return (
-    <div className="w-full flex justify-center bg-white dark:bg-slate-800 rounded-xl shadow-inner p-4 overflow-x-auto mb-6 custom-scrollbar transition-colors duration-300">
-       <div ref={containerRef} className="flex-shrink-0" /> 
+    <div className="w-full flex justify-center bg-white dark:bg-slate-800 rounded-xl shadow-inner p-2 sm:p-4 mb-4 sm:mb-6 transition-colors duration-300">
+       <div ref={containerRef} className="w-full max-w-full flex justify-center [&>svg]:max-w-full [&>svg]:max-h-[35vh] [&>svg]:w-auto [&>svg]:h-auto" /> 
     </div>
   );
 };

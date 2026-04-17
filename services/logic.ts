@@ -217,38 +217,61 @@ export const generateExercise = (settings: GameSettings): ExerciseItem[] => {
     return true; 
   };
 
-  const getValidRandomMidi = (min: number, max: number): number => {
-    // We use a property on the function to store the bag across calls in the same session
-    // To ensure equal distribution, we generate all valid notes, shuffle them, and draw.
-    const bagKey = `${settings.clef}-${settings.keyRoot}-${settings.keyType}-${settings.useAccidentals}-${settings.restrictedNotes?.join(',')}`;
-    
-    if (!(getValidRandomMidi as any).bag || (getValidRandomMidi as any).bagKey !== bagKey || (getValidRandomMidi as any).bag.length === 0) {
-      let newBag: number[] = [];
-      if (settings.restrictedNotes && settings.restrictedNotes.length > 0) {
-        newBag = [...settings.restrictedNotes];
-      } else {
-        for (let i = min; i <= max; i++) {
-          if (isValidNote(i)) newBag.push(i);
+  const getValidRandomMidi = (min: number, max: number, previousMidi?: number): number => {
+    if (settings.restrictedNotes && settings.restrictedNotes.length > 0) {
+      // Practice extra mode: use bag approach to ensure all restricted notes are practiced equally
+      const bagKey = `restricted-${settings.restrictedNotes.join(',')}`;
+      if (!(getValidRandomMidi as any).bag || (getValidRandomMidi as any).bagKey !== bagKey || (getValidRandomMidi as any).bag.length === 0) {
+        let newBag = [...settings.restrictedNotes];
+        for (let i = newBag.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newBag[i], newBag[j]] = [newBag[j], newBag[i]];
         }
+        (getValidRandomMidi as any).bag = newBag;
+        (getValidRandomMidi as any).bagKey = bagKey;
       }
-      
-      // Shuffle
-      for (let i = newBag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newBag[i], newBag[j]] = [newBag[j], newBag[i]];
-      }
-      
-      (getValidRandomMidi as any).bag = newBag;
-      (getValidRandomMidi as any).bagKey = bagKey;
+      return (getValidRandomMidi as any).bag.pop();
     }
-    
-    return (getValidRandomMidi as any).bag.pop();
+
+    // Complete random mode
+    const validNotes: number[] = [];
+    for (let i = min; i <= max; i++) {
+      if (isValidNote(i)) validNotes.push(i);
+    }
+
+    if (validNotes.length === 0) return min; // Fallback
+
+    if (previousMidi !== undefined) {
+      // Prioritize 3rd, 4th, 5th, 6th, 7th intervals (approx 3 to 11 semitones)
+      const weightedNotes: { midi: number, weight: number }[] = [];
+      let totalWeight = 0;
+      for (const midi of validNotes) {
+        const diff = Math.abs(midi - previousMidi);
+        // 3 to 11 semitones covers minor 3rd to major 7th
+        let weight = 1;
+        if (diff >= 3 && diff <= 11) {
+          weight = 5; // Prioritize these intervals
+        }
+        weightedNotes.push({ midi, weight });
+        totalWeight += weight;
+      }
+
+      let randomVal = Math.random() * totalWeight;
+      for (const item of weightedNotes) {
+        randomVal -= item.weight;
+        if (randomVal <= 0) return item.midi;
+      }
+    }
+
+    // If no previousMidi or fallback
+    return validNotes[Math.floor(Math.random() * validNotes.length)];
   };
 
   if (settings.mode === 'single') {
     const totalNotes = settings.noteCount || 12;
     let i = 0;
     let beamGroupCounter = 0;
+    let previousMidi: number | undefined = undefined;
     
     while (i < totalNotes) {
       // Randomly decide if the next notes should be a beam group (e.g., 2 or 4 eighth notes)
@@ -258,7 +281,8 @@ export const generateExercise = (settings: GameSettings): ExerciseItem[] => {
         // Create a beam group of 2 or 4 notes
         const notesInGroup = (Math.random() > 0.5 && i <= totalNotes - 4) ? 4 : 2;
         for (let n = 0; n < notesInGroup; n++) {
-          const midi = getValidRandomMidi(min, max);
+          const midi = getValidRandomMidi(min, max, previousMidi);
+          previousMidi = midi;
           const noteObj = midiToNote(midi, settings.keyRoot, settings.keyType);
           noteObj.duration = '8';
           items.push({
@@ -273,7 +297,8 @@ export const generateExercise = (settings: GameSettings): ExerciseItem[] => {
         beamGroupCounter++;
       } else {
         // Single quarter note
-        const midi = getValidRandomMidi(min, max);
+        const midi = getValidRandomMidi(min, max, previousMidi);
+        previousMidi = midi;
         const noteObj = midiToNote(midi, settings.keyRoot, settings.keyType);
         noteObj.duration = 'q';
         items.push({
@@ -287,9 +312,11 @@ export const generateExercise = (settings: GameSettings): ExerciseItem[] => {
   } 
   else if (settings.mode === 'chords') {
     const itemCount = settings.noteCount || 6;
+    let previousRoot: number | undefined = undefined;
     for (let i = 0; i < itemCount; i++) {
       const safeMax = max - 11;
-      let root = getValidRandomMidi(min, safeMax);
+      let root = getValidRandomMidi(min, safeMax, previousRoot);
+      previousRoot = root;
       
       const isSeventh = Math.random() > 0.7;
       const chordMidis = [root];
@@ -368,10 +395,12 @@ export const generateExercise = (settings: GameSettings): ExerciseItem[] => {
       const totalNotes = settings.noteCount || 12;
       const groupCount = Math.max(1, Math.floor(totalNotes / 4)); 
       const notesPerGroup = 4;
+      let previousMidi: number | undefined = undefined;
       
       for (let g = 0; g < groupCount; g++) {
           for (let n = 0; n < notesPerGroup; n++) {
-              const midi = getValidRandomMidi(min, max);
+              const midi = getValidRandomMidi(min, max, previousMidi);
+              previousMidi = midi;
               const noteObj = midiToNote(midi, settings.keyRoot, settings.keyType);
               noteObj.duration = '8';
               
